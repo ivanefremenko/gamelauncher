@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Выбор пользователя</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        font-family: Arial, Helvetica, sans-serif;
+        background:
+            radial-gradient(circle at 50% 20%, #1b2838 0%, #171d25 45%, #10151b 100%);
+        color: #d6d7d8;
+    }
+
+    body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .steam-window {
+        width: 760px;
+        max-width: 92vw;
+        min-height: 460px;
+
+        background: rgba(23, 29, 37, 0.97);
+        border: 1px solid rgba(255,255,255,0.07);
+
+        box-shadow:
+            0 25px 70px rgba(0,0,0,0.65),
+            0 0 0 1px rgba(0,0,0,0.5);
+
+        padding: 42px 50px 38px;
+    }
+
+    .title {
+        text-align: center;
+        font-size: 27px;
+        font-weight: 300;
+        color: #ffffff;
+        margin-bottom: 8px;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #8f98a0;
+        font-size: 14px;
+        margin-bottom: 35px;
+    }
+
+    .users {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 18px;
+        min-height: 170px;
+        justify-items: center;
+    }
+
+    .user {
+        width: 145px;
+        padding: 10px 8px 14px;
+
+        cursor: pointer;
+        text-align: center;
+
+        border: 1px solid transparent;
+        background: transparent;
+
+        transition:
+            background .15s,
+            border-color .15s,
+            transform .15s;
+    }
+
+    .user:hover {
+        background: rgba(255,255,255,0.045);
+        border-color: rgba(255,255,255,0.08);
+        transform: translateY(-2px);
+    }
+
+    .user.selected {
+        background: rgba(27, 102, 160, 0.35);
+        border-color: #66c0f4;
+    }
+
+    .avatar {
+        width: 92px;
+        height: 92px;
+
+        margin: 0 auto 12px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        background:
+            linear-gradient(145deg, #3d607b, #1b2838);
+
+        border: 2px solid #526d82;
+
+        box-shadow:
+            0 4px 12px rgba(0,0,0,0.4);
+
+        color: #dceeff;
+        font-size: 34px;
+        font-weight: 300;
+    }
+
+    .user.selected .avatar {
+        border-color: #66c0f4;
+        box-shadow:
+            0 0 0 2px rgba(102,192,244,0.15),
+            0 5px 18px rgba(0,0,0,0.5);
+    }
+
+    .username {
+        color: #ffffff;
+        font-size: 15px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .steam-id {
+        color: #68747e;
+        font-size: 11px;
+        margin-top: 5px;
+    }
+
+    .empty {
+        grid-column: 1 / -1;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 100%;
+        color: #7f8b95;
+        font-size: 14px;
+    }
+
+    .bottom {
+        margin-top: 38px;
+
+        display: flex;
+        justify-content: center;
+    }
+
+    .continue {
+        min-width: 190px;
+        height: 42px;
+
+        border: none;
+        border-radius: 2px;
+
+        background: linear-gradient(
+            to bottom,
+            #75c8f5,
+            #1a9fff
+        );
+
+        color: #fff;
+        font-size: 15px;
+
+        cursor: pointer;
+
+        box-shadow:
+            0 2px 5px rgba(0,0,0,0.4);
+
+        transition:
+            filter .15s,
+            transform .1s;
+    }
+
+    .continue:hover {
+        filter: brightness(1.08);
+    }
+
+    .continue:active {
+        transform: translateY(1px);
+    }
+
+    .continue:disabled {
+        cursor: default;
+        opacity: 0.35;
+        filter: none;
+    }
+
+    .status {
+        text-align: center;
+        margin-top: 17px;
+        min-height: 18px;
+
+        color: #7f8b95;
+        font-size: 12px;
+    }
+
+    @media (max-width: 650px) {
+        .steam-window {
+            padding: 30px 20px;
+        }
+
+        .users {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<div class="steam-window">
+
+    <div class="title">
+        Выберите пользователя
+    </div>
+
+    <div class="subtitle">
+        Выберите аккаунт Steam для продолжения
+    </div>
+
+    <div id="users" class="users">
+        <div class="empty">
+            Загрузка пользователей...
+        </div>
+    </div>
+
+    <div class="bottom">
+        <button id="continueButton" class="continue" disabled>
+            Продолжить
+        </button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+</div>
+
+
+<script>
+
+let users = [];
+let selectedUser = null;
+
+
+// --------------------------------------------------
+// Получение пользователей
+// --------------------------------------------------
+
+async function loadUsers() {
+
+    const container = document.getElementById("users");
+    const status = document.getElementById("status");
+
+    try {
+
+        const response = await fetch("/users");
+
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+
+        users = await response.json();
+
+        renderUsers();
+
+    } catch (error) {
+
+        console.error("Ошибка загрузки пользователей:", error);
+
+        container.innerHTML = `
+            <div class="empty">
+                Не удалось загрузить пользователей
+            </div>
+        `;
+
+        status.textContent = "Ошибка подключения к серверу";
+    }
+}
+
+
+// --------------------------------------------------
+// Отрисовка пользователей
+// --------------------------------------------------
+
+function renderUsers() {
+
+    const container = document.getElementById("users");
+
+    container.innerHTML = "";
+
+    if (!users.length) {
+
+        container.innerHTML = `
+            <div class="empty">
+                Пользователи Steam не найдены
+            </div>
+        `;
+
+        return;
+    }
+
+    users.forEach(user => {
+
+        const element = document.createElement("div");
+
+        element.className = "user";
+
+        // Первая буква имени как временный аватар
+        const avatarLetter =
+            (user.name || "?").charAt(0).toUpperCase();
+
+        element.innerHTML = `
+            <div class="avatar">
+                ${avatarLetter}
+            </div>
+
+            <div class="username">
+                ${escapeHtml(user.name)}
+            </div>
+
+            <div class="steam-id">
+                ${escapeHtml(user.id)}
+            </div>
+        `;
+
+        element.addEventListener("click", () => {
+
+            document
+                .querySelectorAll(".user")
+                .forEach(el => el.classList.remove("selected"));
+
+            element.classList.add("selected");
+
+            selectedUser = user;
+
+            document.getElementById("continueButton").disabled = false;
+
+            document.getElementById("status").textContent =
+                "Выбран: " + user.name;
+        });
+
+        container.appendChild(element);
+    });
+}
+
+
+// --------------------------------------------------
+// Отправка выбранного пользователя
+// --------------------------------------------------
+
+async function selectUser() {
+
+    if (!selectedUser) {
+        return;
+    }
+
+    const button = document.getElementById("continueButton");
+    const status = document.getElementById("status");
+
+    button.disabled = true;
+
+    status.textContent = "Выбор пользователя...";
+
+    try {
+
+        const response = await fetch("/select-user", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                id: selectedUser.id
+            })
+
+        });
+
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+
+        const result = await response.json();
+
+        console.log("Сервер ответил:", result);
+
+        status.textContent =
+            "Пользователь выбран: " + selectedUser.name;
+
+        window.pywebview.api.login_success();
+
+    } catch (error) {
+
+        console.error("Ошибка отправки:", error);
+
+        status.textContent =
+            "Не удалось отправить выбор";
+
+        button.disabled = false;
+    }
+}
+
+
+document
+    .getElementById("continueButton")
+    .addEventListener("click", selectUser);
+
+
+// --------------------------------------------------
+// Безопасный вывод текста
+// --------------------------------------------------
+
+function escapeHtml(value) {
+
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+
+// Загружаем пользователей при открытии
+loadUsers();
+
+</script>
+
+</body>
+</html>
